@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package simple;
+
+service Simple {
+  rpc Echo(Number) returns (Number) {}
+  rpc Count(Number) returns (stream Number) {}
+  rpc Sum(stream Number) returns (Number) {}
+  rpc EchoStream(stream Number) returns (stream Number) {}
+}
+
+message Number {
+  int32 num = 1;
+}
