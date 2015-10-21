@@ -4,6 +4,8 @@ import (
 	"flag"
 	"io"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/runningwild/repro/simple"
 
@@ -17,6 +19,7 @@ var (
 	count      = flag.Int("count", -1, "number to count to")
 	sum        = flag.Int("sum", -1, "sum up to this number")
 	echoStream = flag.Int("echostream", -1, "double count up to this number")
+	N          = flag.Int("n", 1, "number to run in parallel")
 )
 
 func doEcho(client simple.SimpleClient, num int) {
@@ -110,13 +113,29 @@ func doEchoStream(client simple.SimpleClient, num int) {
 
 func main() {
 	flag.Parse()
+	var wg sync.WaitGroup
+	for i := 0; i < *N; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			doItAll()
+		}()
+	}
+	wg.Wait()
+}
+
+func doItAll() {
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
 	defer conn.Close()
 	client := simple.NewSimpleClient(conn)
-
+	for conn.State() != grpc.Ready {
+		time.Sleep(200 * time.Millisecond)
+	}
+	time.Sleep(200 * time.Millisecond)
+	log.Printf("connection is ready")
 	if *echo >= 0 {
 		doEcho(client, *echo)
 	}
