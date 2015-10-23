@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net"
+	"net/http"
 
 	"github.com/runningwild/repro/simple"
 
@@ -14,7 +16,8 @@ import (
 )
 
 var (
-	port = flag.Int("port", 10000, "Port to serve on")
+	grpcPort = flag.Int("grpc-port", 10000, "Port to serve grpc on")
+	httpPort = flag.Int("http-port", 10001, "Port to serve http on")
 )
 
 type simpleServer struct{}
@@ -62,11 +65,16 @@ func (*simpleServer) EchoStream(stream simple.Simple_EchoStreamServer) error {
 }
 func main() {
 	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *grpcPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	simple.RegisterSimpleServer(grpcServer, &simpleServer{})
-	grpcServer.Serve(lis)
+	go grpcServer.Serve(lis)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	})
+	go http.ListenAndServe(fmt.Sprintf(":%d", *httpPort), nil)
+	select {}
 }
